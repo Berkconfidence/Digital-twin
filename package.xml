@@ -12,6 +12,10 @@
   <depend>sensor_msgs</depend>
   <depend>carla_msgs</depend>
   <depend>nav_msgs</depend>
+  <exec_depend>carla_manual_control</exec_depend>
+  <exec_depend>carla_ad_agent</exec_depend>
+  <exec_depend>carla_ros_bridge</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

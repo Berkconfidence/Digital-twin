@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<robot name="tesla_model_s">
+
+  <!-- Base footprint or link -->
+  <link name="ego_vehicle">
+    <visual>
+      <!-- Adjust rotation if necessary. Common correction for STLs is often rpy="1.5708 0 1.5708" or similar, 
+           but we start with 0 0 0. The scale is set to 1.0 (meters) as a guess. -->
+      <origin xyz="0 0 0.72" rpy="0 0 1.5708"/>
+      <geometry>
+        <!-- Using package path to find the mesh -->
+        <mesh filename="package://digital_twin_pkg/urdf/Model_S.stl" scale="2.5 2.5 2.5"/>
+      </geometry>
+      <material name="silver_paint">
+        <color rgba="0.7 0.7 0.9 1.0"/>
+      </material>
+    </visual>
+  </link>
+
+</robot>

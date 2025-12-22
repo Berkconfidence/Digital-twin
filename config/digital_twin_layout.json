@@ -180,6 +180,52 @@
             "legendDisplay": "floating",
             "showLegend": true,
             "isSynced": true
+        },
+        "Plot!Control": {
+            "paths": [
+                {
+                    "value": "/carla/ego_vehicle/vehicle_status.control.throttle",
+                    "enabled": true,
+                    "timestampMethod": "receiveTime",
+                    "color": "#8ae234",
+                    "label": "Throttle"
+                },
+                {
+                    "value": "/carla/ego_vehicle/vehicle_status.control.brake",
+                    "enabled": true,
+                    "timestampMethod": "receiveTime",
+                    "color": "#ef2929",
+                    "label": "Brake"
+                },
+                {
+                    "value": "/carla/ego_vehicle/vehicle_status.control.steer",
+                    "enabled": true,
+                    "timestampMethod": "receiveTime",
+                    "color": "#729fcf",
+                    "label": "Steer"
+                }
+            ],
+            "showXAxisLabels": true,
+            "showYAxisLabels": true,
+            "legendDisplay": "top",
+            "showLegend": true,
+            "isSynced": true
+        },
+        "Raw!Events": {
+            "topics": [
+                "/carla/ego_vehicle/collision",
+                "/carla/ego_vehicle/lane_invasion"
+            ]
+        },
+        "State!Telemetry": {
+            "paths": [
+                {
+                    "value": "/carla/ego_vehicle/gnss"
+                },
+                {
+                    "value": "/carla/ego_vehicle/vehicle_status"
+                }
+            ]
         }
     },
     "globalVariables": {},
@@ -196,17 +242,27 @@
             "second": {
                 "direction": "row",
                 "first": "Plot!Speed",
-                "second": "Plot!Status",
-                "splitPercentage": 50
+                "second": "Plot!Control",
+                "splitPercentage": 40
             },
-            "splitPercentage": 70
+            "splitPercentage": 60
         },
         "second": {
             "direction": "column",
-            "first": "Image!Front",
-            "second": "Image!Rear",
-            "splitPercentage": 50
+            "first": {
+                "direction": "column",
+                "first": "Image!Front",
+                "second": "Image!Rear",
+                "splitPercentage": 50
+            },
+            "second": {
+                "direction": "row",
+                "first": "State!Telemetry",
+                "second": "Raw!Events",
+                "splitPercentage": 50
+            },
+            "splitPercentage": 60
         },
-        "splitPercentage": 65
+        "splitPercentage": 60
     }
 }
