@@ -1,0 +1,212 @@
+{
+    "configById": {
+        "3D!Primary": {
+            "cameraState": {
+                "perspective": true,
+                "distance": 43.6,
+                "phi": 0.96,
+                "thetaOffset": 2.6,
+                "targetOffset": [
+                    -5.2,
+                    7.0,
+                    0
+                ],
+                "target": [
+                    0,
+                    0,
+                    0
+                ],
+                "targetOrientation": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "fovy": 0.785,
+                "near": 0.01,
+                "far": 5000
+            },
+            "followMode": "follow-pose",
+            "followTf": "ego_vehicle",
+            "scene": {
+                "transforms": {
+                    "showLabel": false,
+                    "axisScale": 1,
+                    "lineWidth": 1
+                }
+            },
+            "topics": {
+                "/carla/ego_vehicle/lidar_top": {
+                    "visible": true,
+                    "pointSize": 3,
+                    "decayTime": 0.5,
+                    "colorMode": "gradient",
+                    "colorField": "intensity",
+                    "gradient": [
+                        "#0011ff",
+                        "#00ff00",
+                        "#ff0000"
+                    ]
+                },
+                "/carla/ego_vehicle/markers/static": {
+                    "visible": true
+                },
+                "/carla/ego_vehicle/markers": {
+                    "visible": true
+                },
+                "/carla/ego_vehicle/waypoints": {
+                    "visible": true,
+                    "color": "#00ff00"
+                },
+                "/carla/ego_vehicle/odometry": {
+                    "visible": true,
+                    "keep": 200,
+                    "color": "#ffff00",
+                    "showTrail": true
+                },
+                "/carla/ego_vehicle/imu": {
+                    "visible": true,
+                    "color": "#ff00ff",
+                    "axisScale": 2
+                },
+                "/carla/ego_vehicle/rgb_front/camera_info": {
+                    "visible": true,
+                    "color": "#ffffff",
+                    "alpha": 0.5
+                }
+            }
+        },
+        "Image!Front": {
+            "cameraState": {
+                "distance": 20,
+                "perspective": true,
+                "phi": 60,
+                "target": [
+                    0,
+                    0,
+                    0
+                ],
+                "targetOffset": [
+                    0,
+                    0,
+                    0
+                ],
+                "targetOrientation": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "thetaOffset": 45,
+                "fovy": 45,
+                "near": 0.5,
+                "far": 5000
+            },
+            "followMode": "follow-pose",
+            "topics": {
+                "/carla/ego_vehicle/rgb_front/image": {
+                    "visible": true
+                }
+            }
+        },
+        "Image!Rear": {
+            "cameraState": {
+                "distance": 20,
+                "perspective": true,
+                "phi": 60,
+                "target": [
+                    0,
+                    0,
+                    0
+                ],
+                "targetOffset": [
+                    0,
+                    0,
+                    0
+                ],
+                "targetOrientation": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "thetaOffset": 45,
+                "fovy": 45,
+                "near": 0.5,
+                "far": 5000
+            },
+            "followMode": "follow-pose",
+            "topics": {
+                "/carla/ego_vehicle/rgb_rear/image": {
+                    "visible": true
+                }
+            }
+        },
+        "Plot!Speed": {
+            "paths": [
+                {
+                    "value": "/carla/ego_vehicle/speedometer.data",
+                    "enabled": true,
+                    "timestampMethod": "receiveTime",
+                    "color": "#ef2929",
+                    "label": "Speed (m/s)"
+                }
+            ],
+            "showXAxisLabels": true,
+            "showYAxisLabels": true,
+            "legendDisplay": "floating",
+            "showLegend": true,
+            "isSynced": true
+        },
+        "Plot!Status": {
+            "paths": [
+                {
+                    "value": "/carla/ego_vehicle/odometry.pose.pose.position.x",
+                    "enabled": true,
+                    "timestampMethod": "receiveTime",
+                    "color": "#729fcf",
+                    "label": "Pos X"
+                },
+                {
+                    "value": "/carla/ego_vehicle/odometry.twist.twist.linear.x",
+                    "enabled": true,
+                    "timestampMethod": "receiveTime",
+                    "color": "#8ae234",
+                    "label": "Linear Vel X"
+                }
+            ],
+            "showXAxisLabels": true,
+            "showYAxisLabels": true,
+            "legendDisplay": "floating",
+            "showLegend": true,
+            "isSynced": true
+        }
+    },
+    "globalVariables": {},
+    "userNodes": {},
+    "linkedGlobalVariables": [],
+    "playbackConfig": {
+        "speed": 1
+    },
+    "layout": {
+        "direction": "row",
+        "first": {
+            "direction": "column",
+            "first": "3D!Primary",
+            "second": {
+                "direction": "row",
+                "first": "Plot!Speed",
+                "second": "Plot!Status",
+                "splitPercentage": 50
+            },
+            "splitPercentage": 70
+        },
+        "second": {
+            "direction": "column",
+            "first": "Image!Front",
+            "second": "Image!Rear",
+            "splitPercentage": 50
+        },
+        "splitPercentage": 65
+    }
+}
