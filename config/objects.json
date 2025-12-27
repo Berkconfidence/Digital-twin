@@ -16,27 +16,57 @@
                     "type": "sensor.camera.rgb",
                     "id": "rgb_front",
                     "spawn_point": {
-                        "x": 2.5,
+                        "x": 2.0,
                         "y": 0.0,
-                        "z": 1.5,
+                        "z": 1.4,
                         "roll": 0.0,
                         "pitch": 0.0,
                         "yaw": 0.0
                     },
-                    "image_size_x": "800",
-                    "image_size_y": "600",
-                    "fov": "90"
+                    "image_size_x": "1280",
+                    "image_size_y": "720",
+                    "fov": "60"
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "rgb_left",
+                    "id": "rgb_view",
                     "spawn_point": {
-                        "x": 1.0,
-                        "y": -0.5,
-                        "z": 1.5,
+                        "x": -4.0,
+                        "y": 0.0,
+                        "z": 2.75,
+                        "roll": 0.0,
+                        "pitch": 25.0,
+                        "yaw": 0.0
+                    },
+                    "image_size_x": "800",
+                    "image_size_y": "600",
+                    "fov": "100"
+                },
+                {
+                    "type": "sensor.camera.rgb",
+                    "id": "rgb_front_wide",
+                    "spawn_point": {
+                        "x": 2.0,
+                        "y": 0.0,
+                        "z": 1.4,
                         "roll": 0.0,
                         "pitch": 0.0,
-                        "yaw": -90.0
+                        "yaw": 0.0
+                    },
+                    "image_size_x": "1280",
+                    "image_size_y": "720",
+                    "fov": "120"
+                },
+                {
+                    "type": "sensor.camera.rgb",
+                    "id": "rgb_blindspot_left",
+                    "spawn_point": {
+                        "x": 0.8,
+                        "y": -0.8,
+                        "z": 1.0,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": -135.0
                     },
                     "image_size_x": "800",
                     "image_size_y": "600",
@@ -44,14 +74,44 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
-                    "id": "rgb_right",
+                    "id": "rgb_blindspot_right",
+                    "spawn_point": {
+                        "x": 0.8,
+                        "y": 0.8,
+                        "z": 1.0,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": 135.0
+                    },
+                    "image_size_x": "800",
+                    "image_size_y": "600",
+                    "fov": "90"
+                },
+                {
+                    "type": "sensor.camera.rgb",
+                    "id": "rgb_view_left",
+                    "spawn_point": {
+                        "x": 1.0,
+                        "y": -0.5,
+                        "z": 1.4,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": -55.0
+                    },
+                    "image_size_x": "800",
+                    "image_size_y": "600",
+                    "fov": "90"
+                },
+                {
+                    "type": "sensor.camera.rgb",
+                    "id": "rgb_view_right",
                     "spawn_point": {
                         "x": 1.0,
                         "y": 0.5,
-                        "z": 1.5,
+                        "z": 1.4,
                         "roll": 0.0,
                         "pitch": 0.0,
-                        "yaw": 90.0
+                        "yaw": 55.0
                     },
                     "image_size_x": "800",
                     "image_size_y": "600",
@@ -63,14 +123,44 @@
                     "spawn_point": {
                         "x": -2.0,
                         "y": 0.0,
-                        "z": 1.5,
+                        "z": 1.0,
                         "roll": 0.0,
-                        "pitch": 0.0,
+                        "pitch": -10.0,
                         "yaw": 180.0
                     },
                     "image_size_x": "800",
                     "image_size_y": "600",
-                    "fov": "90"
+                    "fov": "110"
+                },
+                {
+                    "type": "sensor.camera.depth",
+                    "id": "depth_front",
+                    "spawn_point": {
+                        "x": 2.0,
+                        "y": 0.0,
+                        "z": 1.4,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": 0.0
+                    },
+                    "image_size_x": "1280",
+                    "image_size_y": "720",
+                    "fov": "60"
+                },
+                {
+                    "type": "sensor.camera.semantic_segmentation",
+                    "id": "semantic_front",
+                    "spawn_point": {
+                        "x": 2.0,
+                        "y": 0.0,
+                        "z": 1.4,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": 0.0
+                    },
+                    "image_size_x": "1280",
+                    "image_size_y": "720",
+                    "fov": "60"
                 },
                 {
                     "type": "sensor.lidar.ray_cast",
@@ -78,17 +168,34 @@
                     "spawn_point": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 2.4,
+                        "z": 1.8,
                         "roll": 0.0,
                         "pitch": 0.0,
                         "yaw": 0.0
                     },
-                    "range": "50",
-                    "channels": "32",
-                    "points_per_second": "320000",
-                    "upper_fov": "15.0",
-                    "lower_fov": "-25.0",
-                    "rotation_frequency": "20"
+                    "range": "80",
+                    "channels": "64",
+                    "points_per_second": "600000",
+                    "upper_fov": "10.0",
+                    "lower_fov": "-30.0",
+                    "rotation_frequency": "10",
+                    "noise_stddev": "0.02",
+                    "dropoff_general_rate": "0.10"
+                },
+                {
+                    "type": "sensor.other.radar",
+                    "id": "radar_front",
+                    "spawn_point": {
+                        "x": 2.8,
+                        "y": 0.0,
+                        "z": 0.5,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": 0.0
+                    },
+                    "horizontal_fov": "30",
+                    "vertical_fov": "10",
+                    "range": "200"
                 },
                 {
                     "type": "sensor.other.imu",
@@ -100,7 +207,13 @@
                         "roll": 0.0,
                         "pitch": 0.0,
                         "yaw": 0.0
-                    }
+                    },
+                    "noise_accel_stddev_x": "0.01",
+                    "noise_accel_stddev_y": "0.01",
+                    "noise_accel_stddev_z": "0.01",
+                    "noise_gyro_stddev_x": "0.005",
+                    "noise_gyro_stddev_y": "0.005",
+                    "noise_gyro_stddev_z": "0.005"
                 },
                 {
                     "type": "sensor.other.gnss",
@@ -112,7 +225,10 @@
                         "roll": 0.0,
                         "pitch": 0.0,
                         "yaw": 0.0
-                    }
+                    },
+                    "noise_lat_stddev": "0.0001",
+                    "noise_lon_stddev": "0.0001",
+                    "noise_alt_stddev": "0.0001"
                 },
                 {
                     "type": "sensor.other.collision",

@@ -33,7 +33,9 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'timeout': '200', # Higher timeout for heavy load
             'town': 'Town01', # Simpler map for better FPS and visibility
-            # 'register_all_sensors': 'false' # We explicitly spawn them
+            # 'register_all_sensors': 'false', # We explicitly spawn them
+            'synchronous_mode': 'true',
+            'fixed_delta_seconds': '0.1'
         }.items()
     )
 
@@ -60,13 +62,14 @@ def generate_launch_description():
     )
 
     # 4. Manual Control
-    carla_manual_control_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('carla_manual_control'), 'carla_manual_control.launch.py')
-        ),
-        launch_arguments={
-            'role_name': 'ego_vehicle'
-        }.items()
+    carla_manual_control_node = Node(
+        package='carla_manual_control',
+        executable='carla_manual_control',
+        name='carla_manual_control_ego_vehicle',
+        output='screen',
+        parameters=[
+            {'role_name': 'ego_vehicle'}
+        ]
     )
 
     # 5. Local Planner (Autonomous Control)
@@ -138,7 +141,7 @@ def generate_launch_description():
         carla_ros_bridge_launch,
         carla_spawn_objects_launch,
         carla_waypoint_publisher_launch,
-        carla_manual_control_launch,
+        carla_manual_control_node,
         carla_local_planner_node,
         robot_state_publisher_node,
         foxglove_bridge
