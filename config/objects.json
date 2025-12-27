@@ -92,21 +92,6 @@
                     "id": "rgb_view_left",
                     "spawn_point": {
                         "x": 1.0,
-                        "y": -0.5,
-                        "z": 1.4,
-                        "roll": 0.0,
-                        "pitch": 0.0,
-                        "yaw": -55.0
-                    },
-                    "image_size_x": "800",
-                    "image_size_y": "600",
-                    "fov": "90"
-                },
-                {
-                    "type": "sensor.camera.rgb",
-                    "id": "rgb_view_right",
-                    "spawn_point": {
-                        "x": 1.0,
                         "y": 0.5,
                         "z": 1.4,
                         "roll": 0.0,
@@ -119,9 +104,24 @@
                 },
                 {
                     "type": "sensor.camera.rgb",
+                    "id": "rgb_view_right",
+                    "spawn_point": {
+                        "x": 1.0,
+                        "y": -0.5,
+                        "z": 1.4,
+                        "roll": 0.0,
+                        "pitch": 0.0,
+                        "yaw": -55.0
+                    },
+                    "image_size_x": "800",
+                    "image_size_y": "600",
+                    "fov": "90"
+                },
+                {
+                    "type": "sensor.camera.rgb",
                     "id": "rgb_rear",
                     "spawn_point": {
-                        "x": -2.0,
+                        "x": -3.0,
                         "y": 0.0,
                         "z": 1.0,
                         "roll": 0.0,
