@@ -1,5 +1,4 @@
 import os
-import launch
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, AppendEnvironmentVariable
@@ -8,11 +7,9 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    # Path to our package and config
     dt_pkg_dir = get_package_share_directory('digital_twin_pkg')
     objects_config_path = os.path.join(dt_pkg_dir, 'config', 'objects.json')
 
-    # Arguments
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
 
     # 0. Setup Environment for CARLA Python API
@@ -61,16 +58,16 @@ def generate_launch_description():
         }.items()
     )
 
-    # 4. Manual Control
-    carla_manual_control_node = Node(
-        package='carla_manual_control',
-        executable='carla_manual_control',
-        name='carla_manual_control_ego_vehicle',
-        output='screen',
-        parameters=[
-            {'role_name': 'ego_vehicle'}
-        ]
-    )
+    # 4. Manual Control (Kapatıldı - Performans ve Foxglove optimizasyonu için)
+    # carla_manual_control_node = Node(
+    #     package='carla_manual_control',
+    #     executable='carla_manual_control',
+    #     name='carla_manual_control_ego_vehicle',
+    #     output='screen',
+    #     parameters=[
+    #         {'role_name': 'ego_vehicle'}
+    #     ]
+    # )
 
     # 5. Local Planner (Autonomous Control)
     # We launch only the local_planner to allow the user to manually publish 
@@ -97,7 +94,7 @@ def generate_launch_description():
     )
 
 
-    # 4. Robot Description (URDF)
+    # 6. Robot Description (URDF)
     urdf_file_name = 'car.urdf'
     urdf_path = os.path.join(
         get_package_share_directory('digital_twin_pkg'),
@@ -141,7 +138,7 @@ def generate_launch_description():
         carla_ros_bridge_launch,
         carla_spawn_objects_launch,
         carla_waypoint_publisher_launch,
-        carla_manual_control_node,
+        # carla_manual_control_node,
         carla_local_planner_node,
         robot_state_publisher_node,
         foxglove_bridge

@@ -29,6 +29,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'perception_node = digital_twin_pkg.perception_node:main',
         ],
     },
 )

@@ -1,0 +1,9 @@
+Subscribed to [/carla/ego_vehicle/rgb_front/image]
+23.06 MB/s from 2 messages
+	Message size mean: 3.69 MB min: 3.69 MB max: 3.69 MB
+25.14 MB/s from 9 messages
+	Message size mean: 3.69 MB min: 3.69 MB max: 3.69 MB
+27.02 MB/s from 17 messages
+	Message size mean: 3.69 MB min: 3.69 MB max: 3.69 MB
+27.76 MB/s from 25 messages
+	Message size mean: 3.69 MB min: 3.69 MB max: 3.69 MB

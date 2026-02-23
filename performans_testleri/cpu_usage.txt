@@ -1,0 +1,6 @@
+   6026 berk      20   0 2860036 126020  53388 S   8.3   0.8   0:02.83 carla_waypoint_
+   6025 berk      20   0 1527884  76816  36500 S   0.0   0.5   0:01.94 carla_spawn_obj
+   6029 berk      20   0 3212700  92768  36116 S   0.0   0.6   0:03.38 foxglove_bridge
+   6029 berk      20   0 3215920  94028  36956 S   3.3   0.6   0:03.48 foxglove_bridge
+   6026 berk      20   0 2863900 127432  54368 S   2.6   0.8   0:02.91 carla_waypoint_
+   6025 berk      20   0 1531748  78252  37508 S   2.0   0.5   0:02.00 carla_spawn_obj

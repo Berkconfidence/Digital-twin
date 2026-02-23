@@ -1,0 +1,3 @@
+WARNING: topic [/carla/ego_vehicle/lidar_top] does not appear to be published yet
+average rate: 3.355
+	min: 0.105s max: 0.437s std dev: 0.12613s window: 5

@@ -1,0 +1,1 @@
+WARNING: topic [/carla/ego_vehicle/rgb_view/image] does not appear to be published yet
