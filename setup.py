@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'perception_node = digital_twin_pkg.perception_node:main',
+            'spawn_pedestrians = digital_twin_pkg.spawn_pedestrians:main',
         ],
     },
 )
