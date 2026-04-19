@@ -141,5 +141,5 @@ def generate_launch_description():
         # carla_manual_control_node,
         carla_local_planner_node,
         robot_state_publisher_node,
-        foxglove_bridge
+        foxglove_bridge,
     ])

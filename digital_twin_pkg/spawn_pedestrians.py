@@ -26,8 +26,8 @@ class SpawnPedestriansNode(Node):
         self.declare_parameter('host', '127.0.0.1')
         self.declare_parameter('port', 2000)
         self.declare_parameter('number_of_walkers', 100)
-        self.declare_parameter('percentage_pedestrians_crossing', 0.3)
-        self.declare_parameter('percentage_pedestrians_running', 0.1)
+        self.declare_parameter('percentage_pedestrians_crossing', 0.91)
+        self.declare_parameter('percentage_pedestrians_running', 0.41)
 
         host = self.get_parameter('host').value
         port = self.get_parameter('port').value
