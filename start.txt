@@ -1,0 +1,41 @@
+1.Terminal
+carla_launch
+
+[KOPYALA TÜM TERMİNALLERE YAPIŞTIR]
+cd /home/berk/digital_twin_ws
+source install/setup.bash
+
+2.Terminal
+ros2 launch digital_twin_pkg digital_twin.launch.py
+3.Terminal
+ros2 topic pub /carla/ego_vehicle/speed_command std_msgs/msg/Float64 "{data: 30.0}" --qos-durability transient_local
+
+======================================================================
+TEST MODU (Deterministik — Tavsiye edilen)
+======================================================================
+4.Terminal
+ros2 run digital_twin_pkg spawn_test_scenario
+5.Terminal
+ros2 run digital_twin_pkg advanced_perception
+
+Notlar:
+  - Yayalar otomatik olarak kavşakta konumlanır ve ego araç
+    yaklaştığında karşıdan karşıya geçer.
+  - Her çalıştırmada aynı senaryo tekrarlanır.
+  - Parametreler:
+      --ros-args -p trigger_distance:=30.0  (tetikleme mesafesi)
+      --ros-args -p walker_speed:=1.5       (yaya hızı m/s)
+      --ros-args -p number_of_walkers:=3    (yaya sayısı, max 3)
+      --ros-args -p loop:=true              (senaryo bitti mi tekrarla)
+
+======================================================================
+SERBEST MOD (Rastgele — Eski yöntem)
+======================================================================
+4.Terminal
+ros2 run digital_twin_pkg spawn_pedestrians --ros-args -p number_of_walkers:=250 -p host:='127.0.0.1' -p port:=2000
+5.Terminal
+ros2 run digital_twin_pkg spawn_potholes_node
+6.Terminal
+ros2 run digital_twin_pkg advanced_perception
+
+NOT: İki mod aynı anda kullanılMAmalıdır.

@@ -11,7 +11,7 @@ class PotholeSpawner(Node):
         
         self.declare_parameter('host', 'localhost')
         self.declare_parameter('port', 2000)
-        self.declare_parameter('number_of_potholes', 100)
+        self.declare_parameter('number_of_potholes', 250)
 
         host = self.get_parameter('host').value
         port = self.get_parameter('port').value

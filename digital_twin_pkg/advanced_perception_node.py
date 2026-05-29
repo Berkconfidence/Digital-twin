@@ -1,14 +1,15 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy
 from sensor_msgs.msg import Image
+from std_msgs.msg import Float64
 from carla_msgs.msg import CarlaEgoVehicleStatus  # Direksiyon verisi için
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
+import time
 from ultralytics import YOLO
 import message_filters
-
-# Matematiksel utils modülümüzü import ediyoruz
 from digital_twin_pkg.utils.ego_path_math import get_bev_coordinates, get_ego_path_polygon
 
 class AdvancedPerceptionNode(Node):
@@ -16,9 +17,6 @@ class AdvancedPerceptionNode(Node):
         super().__init__('advanced_perception_node')
         
         # 1. YOLO Modeli ve CV Bridge Kurulumu
-        # CARLA simülatörü GPU VRAM'inin büyük kısmını (~4.5+ GB) tükettiği için,
-        # YOLO inference CPU üzerinde çalıştırılıyor. AMD Ryzen 7 6800H (8C/16T)
-        # CPU'su, CARLA'nın senkron modundaki 10 tick/s hızıyla uyumlu çalışır.
         model_path = '/home/berk/digital_twin_ws/src/digital_twin_pkg/yolo11_carla_train/weights/best.pt'
         try:
             self.model = YOLO(model_path, task='detect')
@@ -47,16 +45,49 @@ class AdvancedPerceptionNode(Node):
             [self.rgb_sub, self.depth_sub], 10, 0.1)
         self.ts.registerCallback(self.synchronized_callback)
         
+        # ═══ Hız ve Fren Kontrol Değişkenleri ═══
+        self.declare_parameter('target_speed', 35.0)
+        self._brake_active = False
+        self._brake_start_time = 0.0
+        self._brake_cooldown = 1.0       # saniye
+
+        # ═══ Çukur Yavaşlama Kontrol Değişkenleri ═══
+        self._pothole_slowdown_active = False
+        self._pothole_last_seen_time = 0.0
+        self._pothole_clearance_delay = 1.0  # Çukur geçildikten sonra bekleme süresi (saniye)
+        self._pothole_slow_speed = 5      # Çukur tespit edildiğinde hedef hız
+
+        # ═══ Trafik Lambası Kontrol Değişkenleri ═══
+        self._red_light_active = False
+        self._red_light_last_seen_time = 0.0
+        self._red_light_cooldown = 1.0          # Kırmızı ışık kaybolunca bekleme süresi (saniye)
+        self._red_light_stop_distance = 5.0     # Bu mesafenin altında dur (metre)
+        self._red_light_max_detect_dist = 15.0  # Bundan uzaktaki ışıkları analiz etme (metre)
+
+        # Speed Command Publisher (Artık aracın hızını biz yönetiyoruz)
+        speed_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        
+        self.speed_pub = self.create_publisher(
+            Float64,
+            '/carla/ego_vehicle/speed_command',
+            speed_qos
+        )
+
         self.get_logger().info('Modüler Aşama-2 Katmanı Başlatıldı: Ego-Path ve Yaya Risk Analizi devrede.')
+
+    def _publish_speed(self, speed):
+        msg = Float64()
+        msg.data = float(speed)
+        self.speed_pub.publish(msg)
 
     def vehicle_status_callback(self, msg):
         # Direksiyon açısını yakalar ve günceller (-1.0 ile 1.0 arası)
         self.current_steer = msg.control.steer
 
-    def draw_bev_map(self, ego_steer, pedestrians_in_path, pedestrians_safe):
+    def draw_bev_map(self, ego_steer, pedestrians_in_path, pedestrians_safe, potholes_in_path, potholes_safe):
         """
         Matematiksel işleyişi test etmek için boş bir siyah ekran üzerinde 
-        aracı (BEV), risk koridorunu ve tespit edilen yayaları çizer.
+        aracı (BEV), risk koridorunu ve tespit edilen yayaları/çukurları çizer.
         """
         # Siyah zemin oluştur (500x500 px)
         bev_img = np.zeros((500, 500, 3), dtype=np.uint8)
@@ -98,6 +129,17 @@ class AdvancedPerceptionNode(Node):
             cv2.circle(bev_img, px_coord, 8, (0, 0, 255), -1) # Kırmızı Nokta: Riskli
             cv2.putText(bev_img, "RISK!", (px_coord[0]+10, px_coord[1]-10), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+
+        # 3. Çukurları Haritaya Ekle (Kare şeklinde)
+        for pot in potholes_safe:
+            px_coord = to_bev_px(pot[0], pot[1])
+            cv2.rectangle(bev_img, (px_coord[0]-4, px_coord[1]-4), (px_coord[0]+4, px_coord[1]+4), (255, 255, 0), -1) # Camgöbeği/Sarı Kare
+            
+        for pot in potholes_in_path:
+            px_coord = to_bev_px(pot[0], pot[1])
+            cv2.rectangle(bev_img, (px_coord[0]-5, px_coord[1]-5), (px_coord[0]+5, px_coord[1]+5), (0, 165, 255), -1) # Turuncu Kare
+            cv2.putText(bev_img, "CUKUR!", (px_coord[0]+10, px_coord[1]-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,165,255), 2)
             
         cv2.imshow("Aşama-2: BEV & Ego-Path Tracker", bev_img)
         cv2.waitKey(1)
@@ -115,27 +157,29 @@ class AdvancedPerceptionNode(Node):
         # 3. Listeler (Harita Çizimi İçin)
         peds_in_path = []
         peds_safe = []
+        potholes_in_path = []
+        potholes_safe = []
+        red_light_detected = False  # Bu frame'de yakın kırmızı ışık var mı?
         
         # 4. YOLO ile Tespit (CPU Inference)
-        # CARLA GPU VRAM'i doldurduğu için YOLO CPU'da çalıştırılıyor.
-        # half=True CPU'da desteklenmez, bu yüzden kaldırıldı.
-        results = self.model.predict(cv_rgb, conf=0.4, imgsz=512, device='cpu', verbose=False)
+        RELEVANT_LABELS = {'pedestrian', 'pothole', 'trafficLight-Red', 'trafficLight-Green'}
+        results = self.model.predict(cv_rgb, conf=0.5, imgsz=512, device='cpu', verbose=False)
         for result in results:
             for box in result.boxes:
                 class_id = int(box.cls[0])
                 label = self.model.names[class_id]
                 
-                # Sadece Yayalara (person) odaklan
-                if label != 'pedestrian':
+                if label not in RELEVANT_LABELS:
                     continue
                     
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 center_x = (x1 + x2) // 2
-                bottom_y = y2 # Yayanın yere bastığı nokta üzerinden derinlik ölçmek daha kesindir
+                bottom_y = y2 # Nesnenin alt noktası üzerinden derinlik ölçümü
                 
                 # Sınır taşmalarını engelle
                 bottom_y = min(bottom_y, cv_depth.shape[0] - 1)
-                depth_pixel = cv_depth[bottom_y, center_x]
+                center_x_clamped = min(max(center_x, 0), cv_depth.shape[1] - 1)
+                depth_pixel = cv_depth[bottom_y, center_x_clamped]
                 
                 # Mesafeyi (X) bul (32FC1 formatı doğrudan metredir)
                 distance = float(depth_pixel)
@@ -143,31 +187,142 @@ class AdvancedPerceptionNode(Node):
                 # NaN veya uçurum değerlerini (gökyüzü vb.) güvenliğe al
                 if np.isnan(distance) or distance <= 0.0 or distance > 1000.0:
                     continue
+
+                # ─── TRAFİK LAMBASI İŞLEME (Ego-path polygon testi YAPILMAZ) ───
+                # Trafik lambası yolun dışında kaldırımda yer alır, polygon testi anlamsız.
+                # Sadece derinlik kamerasıyla mesafe eşiği kontrolü yapılır.
+                if label.startswith('trafficLight'):
+                    # Çok uzaktaki ışıkları tamamen yoksay
+                    if distance > self._red_light_max_detect_dist:
+                        continue
                     
+                    if label == 'trafficLight-Red':
+                        if distance <= self._red_light_stop_distance:
+                            # Yakın kırmızı ışık → DUR
+                            red_light_detected = True
+                            cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 0, 255), 3)
+                            cv2.putText(cv_rgb, f"KIRMIZI ISIK {distance:.1f}m", (x1, y1 - 10),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                            self.get_logger().warn(
+                                f'\U0001f6a6 KIRMIZI ISIK! Arac durduruluyor. Mesafe: {distance:.1f}m')
+                        else:
+                            # Uzak kırmızı ışık → bilgi amaçlı etiketle
+                            cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 100, 255), 2)
+                            cv2.putText(cv_rgb, f"Kirmizi Isik {distance:.1f}m", (x1, y1 - 10),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 100, 255), 2)
+                    elif label == 'trafficLight-Green':
+                        cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.putText(cv_rgb, f"Yesil Isik {distance:.1f}m", (x1, y1 - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    continue  # Trafik lambası işlendi, polygon testine gitme
+
+                # ─── YAYA / ÇUKUR İŞLEME (Ego-path polygon testi) ───
                 # Çok uzaksa (15 metreden fazla) analize dahil etme
                 if distance > 15.0:
                     continue
                     
                 # 5. MATEMATİKSEL DÖNÜŞÜM: Pikselden BEV'e (X, Y)
-                ped_x, ped_y = get_bev_coordinates(center_x, distance, fov=90.0, image_width=img_w)
+                obj_x, obj_y = get_bev_coordinates(center_x, distance, fov=90.0, image_width=img_w)
                 
                 # 6. POINT IN POLYGON (Kritik Alan Kontrolü)
                 # cv2 pointPolygonTest: Eğrinin içi pozitif, dışı negatif döndürür
-                is_inside = cv2.pointPolygonTest(current_polygon, (ped_x, ped_y), measureDist=False)
+                is_inside = cv2.pointPolygonTest(current_polygon, (obj_x, obj_y), measureDist=False)
                 
                 # 7. Sonucu Ayrıştır ve Ana Ekrana Çiz
                 if is_inside >= 0:
-                    peds_in_path.append((ped_x, ped_y))
-                    cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 0, 255), 3) # KIRMIZI
-                    cv2.putText(cv_rgb, "Kritik Yaya", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                    self.get_logger().warn(f'DİKKAT! Yaya Ego Rota Üzerinde! Uzaklık: {ped_x:.1f}m')
+                    if label == 'pedestrian':
+                        peds_in_path.append((obj_x, obj_y))
+                        cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 0, 255), 3) # KIRMIZI
+                        cv2.putText(cv_rgb, "Kritik Yaya", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                        self.get_logger().warn(f'DİKKAT! Yaya Ego Rota Üzerinde! Uzaklık: {obj_x:.1f}m')
+                    elif label == 'pothole':
+                        potholes_in_path.append((obj_x, obj_y))
+                        cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 165, 255), 3) # TURUNCU
+                        cv2.putText(cv_rgb, "Kritik Cukur", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                        self.get_logger().warn(f'DİKKAT! Cukur Ego Rota Üzerinde! Uzaklık: {obj_x:.1f}m')
                 else:
-                    peds_safe.append((ped_x, ped_y))
-                    cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 255, 0), 2) # YEŞİL
-                    cv2.putText(cv_rgb, "Guvenli", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    if label == 'pedestrian':
+                        peds_safe.append((obj_x, obj_y))
+                        cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (0, 255, 0), 2) # YEŞİL
+                        cv2.putText(cv_rgb, "Guvenli Yaya", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    elif label == 'pothole':
+                        potholes_safe.append((obj_x, obj_y))
+                        cv2.rectangle(cv_rgb, (x1, y1), (x2, y2), (255, 255, 0), 2) # AÇIK MAVİ/SARI
+                        cv2.putText(cv_rgb, "Guvenli Cukur", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
 
         # Görüntüleri Bas
-        self.draw_bev_map(self.current_steer, peds_in_path, peds_safe)
+        self.draw_bev_map(self.current_steer, peds_in_path, peds_safe, potholes_in_path, potholes_safe)
+        
+        # ═══ HIZ KONTROL KARAR MEKANİZMASI ═══
+        now = time.time()
+        current_target_speed = self.get_parameter('target_speed').value
+
+        # --- 1. Çukur Durumunu Güncelle ---
+        if potholes_in_path:
+            if not self._pothole_slowdown_active:
+                self.get_logger().warn(
+                    f'⚠️ ÇUKUR TESPİT EDİLDİ! Hız {self._pothole_slow_speed:.0f} km/h\'e düşürülüyor.')
+            self._pothole_slowdown_active = True
+            self._pothole_last_seen_time = now
+        else:
+            if self._pothole_slowdown_active:
+                elapsed_since_pothole = now - self._pothole_last_seen_time
+                if elapsed_since_pothole >= self._pothole_clearance_delay:
+                    self._pothole_slowdown_active = False
+                    self.get_logger().info(
+                        f'✅ Çukur geçildi. Hız {current_target_speed:.1f} km/h\'e yükseltiliyor.')
+
+        # --- 2. Kırmızı Işık Durumunu Güncelle ---
+        if red_light_detected:
+            if not self._red_light_active:
+                self.get_logger().warn('\U0001f6a6 KIRMIZI IŞIK! Araç durduruluyor.')
+            self._red_light_active = True
+            self._red_light_last_seen_time = now
+        else:
+            if self._red_light_active:
+                elapsed_since_red = now - self._red_light_last_seen_time
+                if elapsed_since_red >= self._red_light_cooldown:
+                    self._red_light_active = False
+                    self.get_logger().info('✅ Kırmızı ışık geçildi / Yeşil ışık.')
+
+        # --- 3. Hız Kararını Ver ---
+        # Öncelik: Yaya Freni (0) > Kırmızı Işık (0) > Çukur Yavaşlama (5) > Normal Seyir (35)
+        if peds_in_path:
+            if not self._brake_active:
+                self.get_logger().warn('🛑 ANI FREN! Yaya ego yolunda tespit edildi!')
+            self._brake_active = True
+            self._brake_start_time = now
+            self._publish_speed(0.0)
+        else:
+            if self._brake_active:
+                elapsed = now - self._brake_start_time
+                if elapsed >= self._brake_cooldown:
+                    self._brake_active = False
+                    # Fren kalktıktan sonra diğer durumları kontrol et
+                    if self._red_light_active:
+                        self.get_logger().info(
+                            '✅ Yaya freni kaldırıldı. Kırmızı ışık aktif, hız: 0 km/h')
+                        self._publish_speed(0.0)
+                    elif self._pothole_slowdown_active:
+                        self.get_logger().info(
+                            f'✅ Fren kaldırıldı. Çukur aktif, hız: {self._pothole_slow_speed:.0f} km/h')
+                        self._publish_speed(self._pothole_slow_speed)
+                    else:
+                        self.get_logger().info(
+                            f'✅ Fren kaldırıldı. Hız: {current_target_speed:.1f} km/h')
+                        self._publish_speed(current_target_speed)
+                else:
+                    self._publish_speed(0.0)
+            elif self._red_light_active:
+                # Yaya yok ama kırmızı ışık var → dur
+                self._publish_speed(0.0)
+            elif self._pothole_slowdown_active:
+                # Yaya yok, kırmızı ışık yok ama çukur var → yavaşla
+                self._publish_speed(self._pothole_slow_speed)
+            else:
+                # Güvenli seyir, sürekli hedef hızı bas
+                self._publish_speed(current_target_speed)
+
         cv2.imshow("Kamera ve Algilama", cv_rgb)
         cv2.waitKey(1)
 

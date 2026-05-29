@@ -29,9 +29,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'perception_node = digital_twin_pkg.perception_node:main',
             'spawn_pedestrians = digital_twin_pkg.spawn_pedestrians:main',
-            'object_detection_node = digital_twin_pkg.object_detection_node:main',
             'spawn_potholes_node = digital_twin_pkg.spawn_potholes_node:main',
             'advanced_perception = digital_twin_pkg.advanced_perception_node:main',
         ],

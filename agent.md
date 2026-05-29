@@ -33,10 +33,7 @@ Simülasyonun çekirdeğini başlatan dosyadır. `ros2 launch digital_twin_pkg d
 *(Not: YOLO nesne tanıma, yaya doğurucu ve çukur/enkaz ekleyici sistemler performans, hata ayıklama kolaylığı ve modülerlik açısından bu launch içine dâhil edilmemiş olup, genellikle kendi ayrı terminallerinden `ros2 run` ile başlatılır.)*
 
 ### 2. Algılama ve Yapay Zeka Düğümleri
-* **`object_detection_node.py`**:
-  YOLO11 tabanlı asıl nesne tanıma (object detection) düğümüdür `yolo11_carla_train/weights/best.onnx` ağırlıklarını (fine-tuned model) kullanır. `rgb_front` kamerasından görüntü alır, tahmin yapar. OpenCV penceresi ile anlık görüntüyü basarken, bir yandan da sonuçları `/carla/ego_vehicle/rgb_front/detected_objects` topic'i üzerinden Foxglove'a geri fırlatır.
-
-* **`perception_node.py`**:
+* **`advanced_perception_node.py`**:
   Sensör füzyonu test dosyası. `yolo11n.pt` (standart yolo) kullanarak `rgb_front` ve `depth_front` sensörlerinden gelen verileri eşit zamanlı senkronize eder (`message_filters.ApproximateTimeSynchronizer`). Algılanan yayaların/nesnelerin piksel merkezlerindeki **gerçek derinlik/uzaklık mesafesini (metre cinsinden) hesaplayıp** 15 metreden yakına yaya girdiğinde konsola KRİTİK uyarı basar. CARLA'nın RGB-encoded derinlik formülünü kullanır.
 
 ### 3. Simülasyon Ortamını Zenginleştiren Düğümler
@@ -44,8 +41,14 @@ Simülasyonun çekirdeğini başlatan dosyadır. `ros2 launch digital_twin_pkg d
   Yol hasarlarını tespit eden YOLO modelini test edebilmek için CARLA haritalarında (Town01 vd.) eksik olan çukurların yerine geçen statik objeleri yollara yapıştırır. `brokentile` (kırık taş) ve `dirtdebris` (toprak/moloz yığını) blueprint'lerini rastgele waypoint'ler üzerinde doğurarak (spawn) asfaltta fiziksel olarak bir yol bozukluğu simülasyonu illüzyonu yaratır. 
     * *Çalıştırma:* `ros2 run digital_twin_pkg spawn_potholes_node`
 
-* **`spawn_pedestrians.py`**:
+* **`spawn_pedestrians.py`** *(Serbest Mod — Rastgele Yayalar)*:
   Sistemde yaya tespiti yeteneklerini sınamak için CARLA dünyasında gelişmiş AI güdümlü yayalar oluşturan betiktir. CARLA `synchronous` modda olduğu için `rclpy.spin()` yerine kendi custom loop'u ile sürekli `world.wait_for_tick()` fonksiyonunu çağırır. Yayaların %91 oranında yolu karşıdan karşıya geçmesi gibi zorlayıcı senaryo oranları `parameters` olarak mevcuttur.
+
+* **`spawn_test_scenario.py`** *(Test Modu — Deterministik Senaryo)*:
+  Perception düğümünü tekrarlanabilir koşullarda test edebilmek için tasarlanmış deterministik yaya geçişi senaryosudur. CARLA waypoint API'sini kullanarak ego aracın rotasındaki ilk kavşağı otomatik bulur, kaldırımda sabit konumlarda yaya doğurur ve ego araç belirli mesafeye (`trigger_distance`) yaklaştığında yayaları karşıdan karşıya geçirir. Her çalıştırmada aynı senaryo tekrarlanır. `spawn_pedestrians` ile aynı mimariyi (kendi tick döngüsü) kullanır ama rastgele yerine deterministik parametrelerle.
+    * *Çalıştırma:* `ros2 run digital_twin_pkg spawn_test_scenario`
+    * *Parametreler:* `trigger_distance` (tetikleme mesafesi), `walker_speed` (yaya hızı), `number_of_walkers` (max 3), `loop` (tekrarlama)
+    * **NOT:** `spawn_pedestrians` ile aynı anda kullanılMAmalıdır.
 
 ## Geliştirme Notları (AI Agent İçin Kurallar)
 1. **Senkron Mod Zunrulunkları:** CARLA'da senkron (synchronous) mod aktiftir. Dolayısıyla haritaya eklenen AI objelerinin gerçekte hareket edebilmesi için Python üzerinden dünyanın *tick*'lenmesi (`wait_for_tick`) izlenmelidir.
