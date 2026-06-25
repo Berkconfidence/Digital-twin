@@ -35,20 +35,36 @@ class PotholeSpawner(Node):
         blueprint_library = self.world.get_blueprint_library()
         
         damage_bps = [
-            'static.prop.dirtdebris01', 
-            'static.prop.dirtdebris02', 
+            'static.prop.dirtdebris01',
+            'static.prop.dirtdebris02',
             'static.prop.dirtdebris03',
             'static.prop.brokentile01',
-            'static.prop.brokentile02'
+            'static.prop.brokentile02',
+            'static.prop.brokentile03',
+            'static.prop.brokentile04',
         ]
+
+        # BrokenTile propları için hedef boyut.
+        # CARLA blueprint 'size' attribute'u: 'tiny', 'small', 'medium', 'big', 'huge'
+        brokentile_target_size = 'huge'
         
-        map = self.world.get_map()
-        spawn_points = map.generate_waypoints(distance=2.0)
+        carla_map = self.world.get_map()
+        spawn_points = carla_map.generate_waypoints(distance=2.0)
         
         if not spawn_points:
             self.get_logger().error('No spawn points (waypoints) found in the map.')
             return
 
+        # BrokenTile size attribute bilgisini logla (ilk seferde)
+        sample_bp = blueprint_library.find('static.prop.brokentile01')
+        if sample_bp.has_attribute('size'):
+            size_attr = sample_bp.get_attribute('size')
+            self.get_logger().info(
+                f'BrokenTile size attribute — '
+                f'current: "{size_attr.as_str()}", '
+                f'modifiable: {size_attr.is_modifiable}, '
+                f'recommended: {size_attr.recommended_values}')
+        
         self.get_logger().info(f'Attempting to spawn {self.num_potholes} potholes/debris...')
         
         count = 0
@@ -56,6 +72,16 @@ class PotholeSpawner(Node):
             wp = random.choice(spawn_points)
             bp_name = random.choice(damage_bps)
             bp = blueprint_library.find(bp_name)
+
+            # BrokenTile proplarının size attribute'unu büyüt
+            if 'brokentile' in bp_name and bp.has_attribute('size'):
+                try:
+                    bp.set_attribute('size', brokentile_target_size)
+                except RuntimeError as e:
+                    # İlk hatada bir kez logla, spawn'a devam et
+                    if count == 0:
+                        self.get_logger().warn(
+                            f'size attribute set edilemedi: {e}')
             
             transform = wp.transform
             transform.location.z += 0.05

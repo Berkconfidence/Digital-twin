@@ -1,57 +1,54 @@
 # Proje Özeti: Çift Yönlü Dijital İkiz (Two-Way Digital Twin)
 
-Bu proje, CARLA Simülatörü ve ROS 2 (Jazzy) kullanılarak geliştirilen bir **Çift Yönlü Dijital İkiz (Two-Way Digital Twin)** uygulamasıdır. Proje `digital_twin_pkg` ROS 2 paketi altında geliştirilmektedir. Simülasyon dünyasındaki (CARLA) veriler sensörler aracılığıyla ROS 2 ortamına (gerçek dünya analizi senaryosu) aktarılırken, ROS 2 üzerinde çalışan algoritmik mantıklar ve kontrolcü komutları simülatördeki aracı ve ortamı yönlendirmektedir.
+Bu proje, CARLA Simülatörü ve ROS 2 (Jazzy) kullanılarak geliştirilen bir **Çift Yönlü Dijital İkiz (Two-Way Digital Twin)** uygulamasıdır. `digital_twin_pkg` ROS 2 paketi altında geliştirilmektedir. Simülasyon dünyasındaki (CARLA) veriler sensörler aracılığıyla ROS 2 ortamına (gerçek dünya analizi senaryosu) aktarılırken, ROS 2 üzerinde çalışan algoritmik mantıklar ve kontrolcü komutları simülatördeki aracı ve ortamı otonom veya manuel olarak yönlendirmektedir.
 
-## Sistem Özellikleri & Konfigürasyon
-- **OS:** Linux Ubuntu 24.04
+Bu dosya, projeye yeni dahil olan veya kod yapısını anlamak isteyen bir yapay zeka asistanı veya geliştirici için temel rehber niteliğindedir. Aşağıda projeyi oluşturan temel kaynak kodları, veri yapıları ve modeller detaylı olarak özetlenmiştir.
+
+## Sistem Özellikleri & Teknolojiler
+- **İşletim Sistemi:** Linux Ubuntu 24.04
 - **ROS Sürümü:** ROS 2 Jazzy
-- **Simülatör:** CARLA (`carla_ros_bridge` üzerinden senkron (synchronous) modda haberleşiliyor)
-- **Görselleştirme:** Çoğunlukla `foxglove_bridge` üzerinden Foxglove ile veya OpenCV pencereleriyle görselleştirme yapılmaktadır.
-- **Harita:** Varsayılan olarak `Town01` kullanılmaktadır. Harita değişikliği `digital_twin.launch.py` içinden yönetilir.
+- **Simülatör:** CARLA (Senkron - Synchronous modda çalışmaktadır)
+- **Derin Öğrenme Modeli:** YOLO11 (`yolo11_carla_train/weights/best.pt` ağırlıkları ile araç, yaya, çukur ve trafik lambası tespiti yapmaktadır)
+- **Görselleştirme:** Foxglove Studio (`foxglove_bridge` üzerinden) ve OpenCV pencereleri.
 
-## Araç ve Sensörler (`config/objects.json`)
-Ego araç olarak **Tesla Model 3** kullanılmaktadır. Araca eklenen temel sensörler:
-- `rgb_front` (Ön RGB Kamera)
-- `rgb_view` (Üçüncü şahıs izleme kamerası)
-- `depth_front` (Ön Derinlik Kamerası)
-- `semantic_front` (Semantik Segmentasyon Kamerası)
-- `lidar_top` (Tepede 64 kanallı Lidar)
-- `radar_front` (Ön Radar)
-- IMU, GNSS, Çarpışma (Collision), Şerit İhlali (Lane Invasion) ve Kilometre Sayacı (Speedometer, Odometry) sensörleri.
+---
 
-## Temel Dosyalar ve Düğümler (Nodes)
+## Projedeki Temel Kaynak Kodları ve Dosyalar
 
-### 1. `launch/digital_twin.launch.py` (Ana Başlatıcı)
-Simülasyonun çekirdeğini başlatan dosyadır. `ros2 launch digital_twin_pkg digital_twin.launch.py` komutuyla çalışır.
-İçerdikleri:
-- `carla_ros_bridge`: CARLA ile haberleşmeyi, köprüyü kurar.
-- `carla_spawn_objects`: `objects.json` içerisindeki aracı ve sensörleri doğurur.
-- `carla_waypoint_publisher` & `local_planner`: Otonom idare, rota oluşturma araçları.
-- `robot_state_publisher`: Aracın URDF formatındaki (`urdf/car.urdf`) fiziksel gövdesini yayınlar.
-- `foxglove_bridge`: Tüm akışın Foxglove programı üzerinden izlenmesini sağlar.
+### 1. Düğümler (Nodes) ve Betikler
 
-*(Not: YOLO nesne tanıma, yaya doğurucu ve çukur/enkaz ekleyici sistemler performans, hata ayıklama kolaylığı ve modülerlik açısından bu launch içine dâhil edilmemiş olup, genellikle kendi ayrı terminallerinden `ros2 run` ile başlatılır.)*
+* **`advanced_perception_node.py`** (Gelişmiş Algılama ve Karar Düğümü)
+  Projenin beyni konumundaki yapay zeka düğümüdür. `message_filters.ApproximateTimeSynchronizer` kullanarak ön RGB ve Derinlik (Depth) kameralarını senkronize eder. YOLO11 modelini çalıştırarak nesneleri tespit eder. 
+  * *Çalışma Mantığı:* Tespit edilen piksellerin derinlik verisini alarak `ego_path_math.py` yardımıyla 3B kuşbakışı (BEV) koordinatlara çevirir. Yaya ve çukurların, aracın direksiyon açısına göre hesaplanan "Risk Koridoru (Ego-Path)" içinde olup olmadığını poligon testleriyle denetler. Trafik lambalarının (Kırmızı/Yeşil) uzaklığını hesaplar.
+  * *Hız Kontrol Hiyerarşisi:* Tespitlere göre araca hız komutları gönderir. Öncelik sırası: Kritik Yaya (0 km/h) > Kırmızı Işık (0 km/h) > Çukur (5 km/h) > Normal Seyir (35 km/h) şeklindedir. Kesintileri önlemek için bekleme (cooldown) süreleri içerir.
 
-### 2. Algılama ve Yapay Zeka Düğümleri
-* **`advanced_perception_node.py`**:
-  Sensör füzyonu test dosyası. `yolo11n.pt` (standart yolo) kullanarak `rgb_front` ve `depth_front` sensörlerinden gelen verileri eşit zamanlı senkronize eder (`message_filters.ApproximateTimeSynchronizer`). Algılanan yayaların/nesnelerin piksel merkezlerindeki **gerçek derinlik/uzaklık mesafesini (metre cinsinden) hesaplayıp** 15 metreden yakına yaya girdiğinde konsola KRİTİK uyarı basar. CARLA'nın RGB-encoded derinlik formülünü kullanır.
+* **`spawn_pedestrians.py`** (Yapay Zeka Yaya Doğurucu)
+  CARLA dünyasında gelişmiş AI güdümlü yayalar oluşturan scripttir. 
+  * *Önemli Detay:* CARLA senkron modda çalıştığı için, yayaların gerçekten hareket edebilmesi adına `rclpy.spin()` ile birlikte çalışan özel bir döngüde sürekli `world.wait_for_tick()` çağırır. Yayaların karşıdan karşıya geçme veya koşma oranları gibi zorlayıcı test parametreleri içerir.
 
-### 3. Simülasyon Ortamını Zenginleştiren Düğümler
-* **`spawn_potholes_node.py`**:
-  Yol hasarlarını tespit eden YOLO modelini test edebilmek için CARLA haritalarında (Town01 vd.) eksik olan çukurların yerine geçen statik objeleri yollara yapıştırır. `brokentile` (kırık taş) ve `dirtdebris` (toprak/moloz yığını) blueprint'lerini rastgele waypoint'ler üzerinde doğurarak (spawn) asfaltta fiziksel olarak bir yol bozukluğu simülasyonu illüzyonu yaratır. 
-    * *Çalıştırma:* `ros2 run digital_twin_pkg spawn_potholes_node`
+* **`spawn_potholes_node.py`** (Çukur ve Enkaz Doğurucu)
+  Yol hasarı/çukur algılama (pothole detection) özelliklerini test edebilmek için asfalta statik bozukluklar ekler. 
+  * *Özellikleri:* Haritadaki waypoint'leri kullanarak yollara rastgele `dirtdebris` (moloz/toprak) ve `brokentile` (kırık fayans) gibi CARLA prop'ları yerleştirir. Prop boyutlarını ayarlayarak (örn. `size` attribute'unu değiştirerek) sistemin yapay zeka kamerasında belirgin, fiziksel olarak da aracın üzerinden geçerken sarsılacağı gerçekçi yol bozuklukları simüle eder.
 
-* **`spawn_pedestrians.py`** *(Serbest Mod — Rastgele Yayalar)*:
-  Sistemde yaya tespiti yeteneklerini sınamak için CARLA dünyasında gelişmiş AI güdümlü yayalar oluşturan betiktir. CARLA `synchronous` modda olduğu için `rclpy.spin()` yerine kendi custom loop'u ile sürekli `world.wait_for_tick()` fonksiyonunu çağırır. Yayaların %91 oranında yolu karşıdan karşıya geçmesi gibi zorlayıcı senaryo oranları `parameters` olarak mevcuttur.
+* **`ego_path_math.py`** (Matematik ve Geometri Araçları)
+  Algılama düğümünün (perception) mekansal farkındalığını sağlayan yardımcı modüldür.
+  * *Fonksiyonları:* Kameradan gelen 2D piksel X koordinatını ve Derinlik Z verisini alarak, 3D Kuşbakışı (Bird's Eye View - BEV) X, Y koordinatlarına çeviren `get_bev_coordinates` fonksiyonunu barındırır. Ayrıca aracın anlık direksiyon açısına (steer) göre aracın gelecekteki rotasını çizen bir çokgen (polygon) oluşturan `get_ego_path_polygon` fonksiyonunu içerir.
 
-* **`spawn_test_scenario.py`** *(Test Modu — Deterministik Senaryo)*:
-  Perception düğümünü tekrarlanabilir koşullarda test edebilmek için tasarlanmış deterministik yaya geçişi senaryosudur. CARLA waypoint API'sini kullanarak ego aracın rotasındaki ilk kavşağı otomatik bulur, kaldırımda sabit konumlarda yaya doğurur ve ego araç belirli mesafeye (`trigger_distance`) yaklaştığında yayaları karşıdan karşıya geçirir. Her çalıştırmada aynı senaryo tekrarlanır. `spawn_pedestrians` ile aynı mimariyi (kendi tick döngüsü) kullanır ama rastgele yerine deterministik parametrelerle.
-    * *Çalıştırma:* `ros2 run digital_twin_pkg spawn_test_scenario`
-    * *Parametreler:* `trigger_distance` (tetikleme mesafesi), `walker_speed` (yaya hızı), `number_of_walkers` (max 3), `loop` (tekrarlama)
-    * **NOT:** `spawn_pedestrians` ile aynı anda kullanılMAmalıdır.
+### 2. Başlatıcılar ve Konfigürasyonlar (Launch & Config)
 
-## Geliştirme Notları (AI Agent İçin Kurallar)
-1. **Senkron Mod Zunrulunkları:** CARLA'da senkron (synchronous) mod aktiftir. Dolayısıyla haritaya eklenen AI objelerinin gerçekte hareket edebilmesi için Python üzerinden dünyanın *tick*'lenmesi (`wait_for_tick`) izlenmelidir.
-2. **Statik Objeler ve Segmentasyon:** Çukurlar (Potholes) `static.prop.*` sınıfında olduğu için Semantik Segmentasyon kamerasında varsayılan "Static" grubunda (çoğunlukla yeşil tonları) yer alır. Aynı zamanda fiziksel Z-Eksen çarpışma kutularının boyutundan ötürü aracı zıplatabilir veya hafif titretir, bu da bozukluğun gerçekçiliğini artırır.
-3. **Prensip - Modüler Test Akışı:** Yeni bir özellik veya deneysel yapay zeka düğümü ekleneceğinde, bunun hemen `digital_twin.launch.py` içine dâhil edilmesi tavsiye EDİLMEZ. Modülerliği korumak ve bağımsız test edebilmek için `setup.py` (entry_points) içine eklenmeli ve konsoldan ayrıca `ros2 run` ile tetiklenmesi hedeflenmelidir. Yalnızca kararlı hale gelen temel / global yapılar launch dosyasında kalmalıdır.
-4. **Harita Kısıtlamaları:** Python ile haritaya yerleştirilen object mesh'lerinin (prop) scale(boyut) değeri değiştirilemez, statik prop'ları şeridin sağ-sol ortasına dağıtmak gerekiyorsa waypoint transform lokasyonlarının lokal ekseninde +- uzaklık payı ötelemek matematiksel olarak kolay bir çözümdür. Ayrıca Town07 varsayılan kurulumda gelmeyebilir, `Town01`, `Town03`, `Town10HD` gibi hazır gelenleri tercih et.
+* **`digital_twin.launch.py`** (Ana Simülasyon Başlatıcısı)
+  CARLA simülasyonunu ve ROS 2 köprülerini ayağa kaldıran ana omurgadır.
+  * *İçerdikleri:* CARLA ortamını, `carla_ros_bridge`'i (senkron modda), aracı ve sensörleri (`carla_spawn_objects`), otonom sürüş rota planlayıcısını (`local_planner`), Foxglove görselleştirme köprüsünü (`foxglove_bridge`) ve aracın fiziksel URDF modelini (`robot_state_publisher`) tek bir komutla başlatır. Deney düğümleri (perception, spawner'lar) modülerliği korumak için genellikle ayrı terminallerden manuel çalıştırılır.
+
+* **`objects.json`** (Araç ve Sensör Konfigürasyonu)
+  Simülasyona eklenecek olan Ego aracı (Tesla Model 3) ve üzerine monte edilen sensörlerin kesin konumlarını, rotasyonlarını ve teknik özelliklerini tanımlar.
+  * *Sensörler:* Ön RGB, Geniş Açılı RGB, Sol/Sağ/Arka Görüş kameraları, Derinlik (Depth) Kamerası, Semantik Segmentasyon Kamerası, Lidar (Tepede 64 kanal), Ön Radar, IMU, GNSS, Çarpışma ve Şerit İhlali gibi çok çeşitli donanımları içerir. Bu dosya, `digital_twin.launch.py` tarafından okunur.
+
+* **`digital_twin_layout.json`** (Foxglove Studio Arayüz Şablonu)
+  Telemetri ve görselleştirme aracı olan Foxglove Studio için hazırlanmış dashboard düzenidir.
+  * *İçerdikleri:* Aracın Lidar, Radar, Odometry ve Waypoint verilerini 3 boyutlu izlemek için "3D Overview" paneli; gaz, fren, direksiyon, hız ve IMU grafiklerini çizen Plot panelleri; ve birden fazla kameranın (RGB, Semantic vb.) görüntülerini aynı anda izlemeye yarayan Image View panellerini hazır olarak sunar.
+
+---
+
+## Geliştirme Prensibi
+Sistem son derece **modüler** tasarlanmıştır. Başlatıcılar (`launch` dosyaları) sadece stabil çekirdek sistemi ayağa kaldırırken, test edilen veya geliştirilen yapay zeka düğümleri (`advanced_perception_node.py` gibi) ve ortam manipülatörleri (`spawn_potholes_node.py` gibi) her zaman izole olarak kendi CLI komutlarıyla (örn. `ros2 run digital_twin_pkg ...`) çalıştırılarak test edilir. Simülatördeki her aktör, gerçek dünyadaki bir donanımın dijital karşılığı olarak (Digital Twin mantığıyla) ROS 2'ye veri basmaktadır.
